@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+     http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+     http://www.springframework.org/schema/beans
+     http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+     http://www.springframework.org/schema/rabbit
+     http://www.springframework.org/schema/rabbit/spring-rabbit-1.2.xsd">
+		<!--配置connection-factory，指定连接rabbit server参数 -->
+		<rabbit:connection-factory id="connectionFactory" username="${mq.queue.username}" 
+							    password="${mq.queue.password}" host="${mq.queue.ip}" port="5672" />
+
+		<!--通过指定下面的admin信息，当前producer中的exchange和queue会在rabbitmq服务器上自动生成 -->
+		<rabbit:admin id="connectAdmin" connection-factory="connectionFactory" />
+		
+		<!--定义rabbit template用于数据的接收和发送 -->
+		<rabbit:template id="amqpTemplate" connection-factory="connectionFactory" />	
+		
+		<!--定义queue -->
+		<rabbit:queue name="${mq.queue}" durable="true" auto-delete="false" exclusive="false" />
+		<rabbit:queue name="test123queue" durable="true"/>
+    	<rabbit:queue name="test321queue" durable="true"/>
+
+	
+		<!-- 定义direct exchange，绑定exchange -->
+		<rabbit:direct-exchange name="exchange"
+			durable="true" auto-delete="false">
+			<rabbit:bindings>
+				<rabbit:binding queue="${mq.queue}" key="${mq.queue}"></rabbit:binding>
+			</rabbit:bindings>
+		</rabbit:direct-exchange>	
+		<!-- queue litener 观察 监听模式 当有消息到达时会通知监听在对应的队列上的监听对象 -->
+		<rabbit:listener-container connection-factory="connectionFactory" acknowledge="manual" concurrency="1">
+			<rabbit:listener queues="${mq.queue}" ref="consumor" />
+		</rabbit:listener-container>
+		
+		<bean id="consumor"  class=" com.test.queue.Consumor"></bean>
+		
+		<!-- topic主题 -->
+	    <rabbit:topic-exchange name="mq.topic.exchange"  xmlns="http://www.springframework.org/schema/rabbit"  durable="true">
+		      <bindings>
+		        <binding queue="test123queue" pattern="*.*.test123" />
+		        <binding queue="test321queue" pattern="test321.#" />
+		      </bindings>
+	    </rabbit:topic-exchange>
+	    <bean id="detailQueueConsumer" class="com.test.queue.DetailQueueConsumer"></bean>
+	    <bean id="detailQueueConsumer2" class="com.test.queue.DetailQueueConsumer"></bean>
+
+	    <rabbit:listener-container connection-factory="connectionFactory" concurrency= "1">
+	        <rabbit:listener queues="test123queue" ref="detailQueueConsumer" method="onMessage"/>
+	        <rabbit:listener queues="test321queue" ref="detailQueueConsumer2" method="onMessage"/>
+	    </rabbit:listener-container>
+	    
+	    <!-- fanout -->
+	    
+	    <rabbit:queue name="mq.fanout.exchange.001" durable="true"/>
+    	<rabbit:queue name="mq.fanout.exchange.002" durable="true"/>
+    	<rabbit:queue name="mq.fanout.exchange.003" durable="true"/>
+    	
+    	
+	     <rabbit:fanout-exchange name="mq.fanout.exchange" xmlns="http://www.springframework.org/schema/rabbit" durable="true">
+		     	<rabbit:bindings>
+		            <rabbit:binding queue="mq.fanout.exchange.001"></rabbit:binding>
+		            <rabbit:binding queue="mq.fanout.exchange.002"></rabbit:binding>
+		            <rabbit:binding queue="mq.fanout.exchange.003"></rabbit:binding>
+	        	</rabbit:bindings> 
+	     </rabbit:fanout-exchange>
+	    
+	    <bean id="detailQueueConsumer3" class="com.test.queue.DetailQueueConsumer">
+	    	<constructor-arg type="java.lang.String">
+            	<value>detailQueueConsumer3</value>
+        	</constructor-arg>
+	    </bean>
+	    <bean id="detailQueueConsumer4" class="com.test.queue.DetailQueueConsumer">
+	    	<constructor-arg type="java.lang.String">
+            	<value>detailQueueConsumer4</value>
+        	</constructor-arg>
+	    </bean>
+	    <bean id="detailQueueConsumer5" class="com.test.queue.DetailQueueConsumer">
+	    	<constructor-arg type="java.lang.String">
+            	<value>detailQueueConsumer5</value>
+        	</constructor-arg>
+	    </bean>
+	    
+	     <rabbit:listener-container connection-factory="connectionFactory" concurrency= "1">
+	        <rabbit:listener queues="mq.fanout.exchange.001" ref="detailQueueConsumer3" method="onMessage"/>
+	        <rabbit:listener queues="mq.fanout.exchange.002" ref="detailQueueConsumer4" method="onMessage"/>
+	        <rabbit:listener queues="mq.fanout.exchange.003" ref="detailQueueConsumer5" method="onMessage"/>
+	    </rabbit:listener-container>
+	    
+<!-- 	    ==========================================================
+ -->	    
+	    <rabbit:queue name="${zowoyoo.hotel.id.queue}" durable="true"  />
+		<rabbit:queue name="${fangcang.hotel.id.queue}" durable="true"  />
+	     
+	     <bean id="consumor6" class="com.test.queue.Consumor">
+	    	<constructor-arg type="java.lang.String">
+            	<value>consumor6</value>
+        	</constructor-arg>
+	    </bean>
+	    <bean id="consumor7" class="com.test.queue.Consumor">
+	    	<constructor-arg type="java.lang.String">
+            	<value>consumor7</value>
+        	</constructor-arg>
+	    </bean>
+	    <!-- topic主题 ... 酒店 start-->
+		<rabbit:topic-exchange name="hotal.id.topic.exchange"  xmlns="http://www.springframework.org/schema/rabbit"  durable="true">
+			<bindings>
+				<binding queue="${zowoyoo.hotel.id.queue}" pattern="${zowoyoo.hotel.id.queue}" />
+<!-- 				<binding queue="${fangcang.hotel.id.queue}" pattern="${fangcang.hotel.id.queue}" />
+ -->			</bindings>
+		</rabbit:topic-exchange>
+
+		<rabbit:listener-container connection-factory="connectionFactory" acknowledge="manual" concurrency="1">
+			<rabbit:listener queues="${zowoyoo.hotel.id.queue}" ref="consumor6" method="onMessage"/>
+			<rabbit:listener queues="${fangcang.hotel.id.queue}" ref="consumor7" method="onMessage"/>
+		</rabbit:listener-container>
+		
+		<rabbit:topic-exchange name="hotal.id.topic.exchange"  xmlns="http://www.springframework.org/schema/rabbit"  durable="true">
+			<bindings>
+<!-- 				<binding queue="${zowoyoo.hotel.id.queue}" pattern="${zowoyoo.hotel.id.queue}" />
+ -->				<binding queue="${fangcang.hotel.id.queue}" pattern="${fangcang.hotel.id.queue}" />
+			</bindings>
+		</rabbit:topic-exchange>
+		
+		
+</beans>
